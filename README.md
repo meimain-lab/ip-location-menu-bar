@@ -6,6 +6,7 @@
 - 刷新失败时按 5、15、30、60、120 秒自动重试；断网期间菜单栏显示断网图标，不会报错
 - 菜单里点「立即刷新」（⌘R）手动刷新
 - 点任意一行详情即可复制该值
+- 可收藏「正确的」IP 档案：之后刷新时，如果国家、地区或 ASN 和所有收藏都对不上（比如代理掉线、出口变了），菜单栏会变成红底提醒，下拉菜单标出哪几项不同，并发一条系统通知。每个档案可单独「锁定 IP」；也可以「暂时忽略」，直到 IP 信息再次变化
 - 可开启「登录时启动」
 
 ## 环境要求
@@ -30,6 +31,12 @@ swift run
 
 ```bash
 REFRESH_INTERVAL=60 build/IPLocationMenuBar.app/Contents/MacOS/IPLocationMenuBar
+```
+
+模拟出口变化、测试不符提醒（改为查询指定 IP 的信息）：
+
+```bash
+IPAPI_LOOKUP_IP=8.8.8.8 build/IPLocationMenuBar.app/Contents/MacOS/IPLocationMenuBar
 ```
 
 查看刷新日志（网络变化、重试、成功或失败）：
@@ -57,6 +64,7 @@ Sources/IPLocationMenuBar/
   AppDelegate.swift   菜单栏图标、下拉菜单、定时刷新
   IPAPIClient.swift   调用 ipapi.co 并处理错误
   IPInfo.swift        响应数据模型
+  FavoriteProfile.swift 收藏档案、比对规则与存储
 Resources/Info.plist  应用包信息（LSUIElement：不显示 Dock 图标）
 Resources/AppIcon.icns 应用图标（由 scripts/make-icon.sh 生成）
 assets/icon-source.png 图标原图（满版方形，由 Codex 生成）

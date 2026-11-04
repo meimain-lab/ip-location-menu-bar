@@ -36,7 +36,14 @@ extension Error {
 }
 
 struct IPAPIClient {
-    private static let endpoint = URL(string: "https://ipapi.co/json/")!
+    /// Set IPAPI_LOOKUP_IP=<ip> to look up another IP instead, e.g. to test the mismatch alert.
+    private static let endpoint: URL = {
+        if let ip = ProcessInfo.processInfo.environment["IPAPI_LOOKUP_IP"].nonEmpty,
+           let url = URL(string: "https://ipapi.co/\(ip)/json/") {
+            return url
+        }
+        return URL(string: "https://ipapi.co/json/")!
+    }()
 
     private let session: URLSession = {
         let config = URLSessionConfiguration.ephemeral

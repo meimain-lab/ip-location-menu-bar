@@ -7,6 +7,8 @@ struct IPInfo: Decodable {
     let city: String?
     let region: String?
     let regionCode: String?
+    /// Two-letter country code, e.g. "US"; steadier than the display name.
+    let country: String?
     let countryName: String?
     let postal: String?
     let latitude: Double?
@@ -20,6 +22,11 @@ struct IPInfo: Decodable {
     var shortLocation: String {
         let regionPart = regionCode.nonEmpty ?? region.nonEmpty
         return [city.nonEmpty, regionPart].compactMap { $0 }.joined(separator: " · ")
+    }
+
+    /// Identifies this exit for "ignore until it changes".
+    var signature: String {
+        [country, regionCode ?? region, asn, ip].map { $0 ?? "" }.joined(separator: "|")
     }
 
     var coordinates: String? {
