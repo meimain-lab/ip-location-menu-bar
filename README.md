@@ -71,3 +71,7 @@ assets/icon-source.png 图标原图（满版方形，由 Codex 生成）
 scripts/build-app.sh  构建并打包 .app
 scripts/make-icon.sh  把原图套上 macOS 圆角遮罩，生成各尺寸的 .icns
 ```
+
+## 许可证
+
+[MIT](LICENSE)
