@@ -17,7 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         return 3600
     }()
 
-    private let client = IPAPIClient()
+    private let router = ProviderRouter()
     private var statusItem: NSStatusItem!
     private var refreshTimer: Timer?
 
@@ -151,7 +151,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         rebuildMenu()
 
         do {
-            info = try await client.fetch()
+            info = try await router.fetch()
             lastUpdated = Date()
             lastError = nil
             retryAttempt = 0
@@ -386,6 +386,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             menu.addItem(ignoreItem)
         }
         menu.addItem(favoritesMenuItem())
+        menu.addItem(sourceMenuItem())
         menu.addItem(.separator())
 
         let refreshItem = NSMenuItem(
@@ -412,6 +413,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             )
             menu.addItem(noticeItem)
         }
+        if lastError == nil, let reason = router.fallbackReason, let source = router.lastSource {
+            let fallbackItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+            fallbackItem.isEnabled = false
+            fallbackItem.attributedTitle = NSAttributedString(
+                string: "\(reason)，已自动切换到 \(source.displayName)",
+                attributes: [.foregroundColor: NSColor.systemOrange, .font: NSFont.menuFont(ofSize: 0)]
+            )
+            menu.addItem(fallbackItem)
+        }
         menu.addItem(.separator())
 
         let loginItem = NSMenuItem(title: "登录时启动", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
@@ -428,7 +438,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     private func statusLine() -> String {
         let schedule = refreshInterval == 3600 ? "每小时自动" : "每 \(Int(refreshInterval)) 秒自动"
         guard let lastUpdated else { return "尚未更新 · \(schedule)" }
-        return "\(Self.timeFormatter.string(from: lastUpdated)) 更新 · \(schedule)"
+        let source = router.lastSource.map { " · 来源 \($0.displayName)" } ?? ""
+        return "\(Self.timeFormatter.string(from: lastUpdated)) 更新\(source) · \(schedule)"
     }
 
     /// Offline notice or the last error, with when the next automatic retry happens.
@@ -476,6 +487,56 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         let item = NSMenuItem()
         item.view = container
         return item
+    }
+
+    private func sourceMenuItem() -> NSMenuItem {
+        let submenu = NSMenu()
+        submenu.autoenablesItems = false
+        let font = NSFont.menuFont(ofSize: 0)
+
+        for provider in IPProvider.allCases {
+            var detail = provider.note
+            if provider == .defaultProvider { detail = "默认 · " + detail }
+            if let until = router.cooldownEnd(for: provider) {
+                detail += " · 出错，\(Self.timeFormatter.string(from: until)) 前跳过"
+            } else if provider == router.lastSource {
+                detail += " · 正在使用"
+            }
+
+            let title = NSMutableAttributedString(string: provider.displayName, attributes: [.font: font])
+            title.append(NSAttributedString(
+                string: "  \(detail)",
+                attributes: [.foregroundColor: NSColor.secondaryLabelColor, .font: font]
+            ))
+            let item = NSMenuItem(title: provider.displayName, action: #selector(selectProvider(_:)), keyEquivalent: "")
+            item.attributedTitle = title
+            item.target = self
+            item.representedObject = provider.rawValue
+            item.state = provider == router.preferred ? .on : .off
+            submenu.addItem(item)
+        }
+        submenu.addItem(.separator())
+
+        let autoItem = NSMenuItem(title: "出错时自动切换到其他数据源", action: #selector(toggleAutoSwitch), keyEquivalent: "")
+        autoItem.target = self
+        autoItem.state = router.autoSwitch ? .on : .off
+        submenu.addItem(autoItem)
+
+        let item = NSMenuItem(title: "数据源", action: nil, keyEquivalent: "")
+        item.submenu = submenu
+        return item
+    }
+
+    @objc private func selectProvider(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String, let provider = IPProvider(rawValue: raw) else { return }
+        router.preferred = provider
+        log.notice("Preferred source set to \(provider.rawValue, privacy: .public)")
+        refreshNow()
+    }
+
+    @objc private func toggleAutoSwitch() {
+        router.autoSwitch.toggle()
+        rebuildMenu()
     }
 
     private func favoritesMenuItem() -> NSMenuItem {

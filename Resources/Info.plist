@@ -24,6 +24,18 @@
     <string>14.0</string>
     <key>LSUIElement</key>
     <true/>
+    <!-- ip-api.com's free tier is HTTP only. -->
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSExceptionDomains</key>
+        <dict>
+            <key>ip-api.com</key>
+            <dict>
+                <key>NSExceptionAllowsInsecureHTTPLoads</key>
+                <true/>
+            </dict>
+        </dict>
+    </dict>
     <key>NSHighResolutionCapable</key>
     <true/>
 </dict>
